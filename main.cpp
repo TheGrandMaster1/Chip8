@@ -1,3 +1,5 @@
+//Testing the SDL library:
+
 #include <iostream>
 #include "src/include/SDL.h"
 
