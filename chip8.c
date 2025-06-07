@@ -11,7 +11,7 @@ typedef struct{
     uint8_t sp; //1 byte stack pointer
     uint8_t delay_timer;
     uint8_t sound_timer;
-    uint8_t keyboard; // 4x4 hexadecimal keyboard
+    uint8_t keyboard[16]; // 4x4 hexadecimal keyboard
 }CHIP8;
 
 
