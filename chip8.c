@@ -41,25 +41,47 @@ void chip8_emulate(CHIP8* chip8){
     uint16_t opcode = (chip8->memory[chip8->pc] >> 8) | (chip8->memory[chip8->pc + 1]);
     printf("Executing opcode: 0x%X at PC: 0x%X\n", opcode, chip8->pc);
 
-
-     // Placeholder example (you can expand this)
+    //Decode & Execute:
     switch (opcode & 0xF000) {
         case 0x1000:
-        //1nnn - JP addr : Jump to location nnn
+            //1nnn - JP addr : Jump to location nnn
             chip8->pc = opcode & 0x0FFF;
             break;
-        
+        case 0x2000:
+            //2nnn - CALL addr : Call subroutine at nnn
+            uint16_t address = opcode & 0x0FFF;
+            chip8->stack[chip8->sp] = chip8->pc + 2; //Save the return address (next instruction) on the stack
+            chip8->sp +=1;
+            chip8->pc = address;
+            break;
+        case 0x3000:
+            //3xkk - SE Vx, byte: Skip next instruction if Vx = kk
+            uint8_t compare_val = opcode & 0x00FF;
+            uint8_t reg = (opcode & 0x0F00) >> 8;
+            
+            if (chip8->register_V[reg] == compare_val) {chip8->pc += 2;}
+            break;
+        case 0x4000:
+            //4xkk - SNE Vx, byte: Skip next instruction if Vx != kk.
+            uint8_t compare_val = opcode & 0x00FF;
+            uint8_t reg = (opcode & 0x0F00) >> 8;
+            if (chip8->register_V[reg] != compare_val) {chip8->pc += 2;}
+            break;
+
+
+            
         default:
             printf("Unknown opcode: 0x%X\n", opcode);
             chip8->pc += 2; // Skip to next instruction
             break;
     }
+    // INCREMENT PC (for instructions that didn’t jump or return)
+    chip8->pc += 2;
 
     if (chip8->delay_timer > 0) chip8->delay_timer--;
     if (chip8->sound_timer > 0) chip8->sound_timer--;
-    //Decode:
     
-    //Execute:
+
 
 }
 
