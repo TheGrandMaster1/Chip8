@@ -44,6 +44,25 @@ void chip8_emulate(CHIP8* chip8){
 
     //Decode & Execute:
     switch (opcode & 0xF000) {
+        case 0x0000: {
+            switch (opcode & 0x00FF) {
+                case 0x00E0:
+                    // 00E0 - CLS: Clear the display
+                    memset(chip8->gfx, 0, sizeof(chip8->gfx));
+                    break;
+                case 0x00EE:
+                    // 00EE - RET: Return from a subroutine
+                    chip8->sp--;
+                    chip8->pc = chip8->stack[chip8->sp]; //resume from the address that was saved during a previous CALL (2NNN)
+                    break;
+
+                default:
+                    // 0nnn - SYS addr: Ignored (original CHIP-8 systems)
+                    printf("Ignored or unknown 0-series opcode: 0x%04X\n", opcode);
+                    break;
+            }
+            break;
+        }
         case 0x1000:;
             //1nnn - JP addr : Jump to location nnn
             chip8->pc = opcode & 0x0FFF;
@@ -79,7 +98,7 @@ void chip8_emulate(CHIP8* chip8){
             break;
         case 0x6000:;
             //6xkk - LD Vx, byte : Set Vx = kk. load kk into reg Vx
-            uint8_t regx6 = (opcode & 0x0F00) << 8;
+            uint8_t regx6 = (opcode & 0x0F00) >> 8;
             uint8_t val6 = (opcode & 0x00FF);
 
             chip8->register_V[regx6] = val6;
@@ -93,62 +112,110 @@ void chip8_emulate(CHIP8* chip8){
             break;
         case 0x8000:;
             //8xy0 - LD Vx, Vy : Set Vx = Vy.
-            if (opcode & 0x000F == 0x0000){
+            if ((opcode & 0x000F) == 0x0000){
                 uint8_t regx8 = (opcode & 0x0F00) >> 8;
                 uint8_t regy8 = (opcode & 0x00F0) >> 4; ///??????
 
                 chip8->register_V[regx8] = chip8->register_V[regy8];
-            } else if (opcode & 0x000F == 0x0001){
+            } else if ((opcode & 0x000F) == 0x0001){
                 //8xy1 - OR Vx, Vy: Set Vx = Vx OR Vy.
                 uint8_t regx81 = (opcode & 0x0F00) >> 8;
                 uint8_t regy81 = (opcode & 0x00F0) >> 4; //??????
 
                 chip8->register_V[regx81] = chip8->register_V[regx81] | chip8->register_V[regy81];
 
-            }else if (opcode & 0x000F == 0x0002){
+            }else if ((opcode & 0x000F) == 0x0002){
                 //8xy2 - AND Vx, Vy: Set Vx = Vx AND Vy.
                 uint8_t regx82 = (opcode & 0x0F00) >> 8;
                 uint8_t regy82 = (opcode & 0x00F0) >> 4; ///????????
 
                 chip8->register_V[regx82] = chip8->register_V[regx82] & chip8->register_V[regy82];
 
-            }else if (opcode & 0x000F == 0x0003){
+            }else if ((opcode & 0x000F) == 0x0003){
                 //8xy3 - XOR Vx, Vy: Set Vx = Vx XOR Vy.
                 uint8_t regx83 = (opcode & 0x0F00) >> 8;
                 uint8_t regy83 = (opcode & 0x00F0) >> 4; ///????????
 
                 chip8->register_V[regx83] = chip8->register_V[regx83] ^ chip8->register_V[regy83];
 
-            }else if (opcode & 0x000F == 0x0004){
+            }else if ((opcode & 0x000F) == 0x0004){
                 //8xy4 - ADD Vx, Vy: Set Vx = Vx + Vy, set VF = carry.
                 uint8_t regx84 = (opcode & 0x0F00) >> 8;
                 uint8_t regy84 = (opcode & 0x00F0) >> 4; ///????????
 
                 uint16_t sum4 = chip8->register_V[regx84] + chip8->register_V[regy84];
-                if (sizeof(sum4) > 255){ // more than 8 bits
+                if (sizeof(sum4) > 2){ // more than 8 bits
                     chip8->register_V[0x0F] = 1;
                 }else{
                     chip8->register_V[0x0F] = 0;
                 }
-                chip8->register_V[regx84] = sum4 & 0xFF;
+                chip8->register_V[regx84] = sum4 & 0xFF; 
 
-            }else if (opcode & 0x000F == 0x0005){
+            }else if ((opcode & 0x000F) == 0x0005){
                 //8xy5 - SUB Vx, Vy: Set Vx = Vx - Vy, set VF = NOT borrow
+                uint8_t regx85 = (opcode & 0x0F00) >> 8;
+                uint8_t regy85 = (opcode & 0x00F0) >> 4;
 
-            }else if (opcode & 0x000F == 0x0006){
+                if ( chip8->register_V[regx85] > chip8->register_V[regy85]){ // Vx > Vy
+                    chip8->register_V[0x0F] = 1;
+                }else{
+                    chip8->register_V[0x0F] = 0;
+                }
+                chip8->register_V[regx85] = chip8->register_V[regx85] - chip8->register_V[regy85];
+
+            }else if ((opcode & 0x000F) == 0x0006){
                 //8xy6 - SHR Vx {, Vy}: Set Vx = Vx SHR 1.
+                uint8_t regx86 = (opcode & 0x0F00) >> 8;
+                if ((chip8->register_V[regx86] & 0x0F) == 0x01){
+                    chip8->register_V[0x0F] = 1;
+                } else{
+                    chip8->register_V[0x0F] = 0;
+                }
+                chip8->register_V[regx86] = chip8->register_V[regx86] / 2;
 
-
-            }else if (opcode & 0x000F == 0x0007){
+            }else if ((opcode & 0x000F )== 0x0007){
                 //8xy7 - SUBN Vx, Vy: Set Vx = Vy - Vx, set VF = NOT borrow.
+                uint8_t regx87 = (opcode & 0x0F00) >> 8;
+                uint8_t regy87 = (opcode & 0x00F0) >> 4;
 
+                if ( chip8->register_V[regy87] > chip8->register_V[regx87]){ // Vx > Vy
+                    chip8->register_V[0x0F] = 1;
+                }else{
+                    chip8->register_V[0x0F] = 0;
+                }
+                chip8->register_V[regx87] = chip8->register_V[regy87] - chip8->register_V[regx87];
 
-            }else if (opcode & 0x000F == 0x000E){
+            }else if ((opcode & 0x000F) == 0x000E){
                 //8xyE - SHL Vx {, Vy}: Set Vx = Vx SHL 1.
+                uint8_t regx88 = (opcode & 0x0F00) >> 8;
+                if ((chip8->register_V[regx88] & 0x80) == 0x80){
+                    chip8->register_V[0x0F] = 1;
+                } else{
+                    chip8->register_V[0x0F] = 0;
+                }
+                chip8->register_V[regx88] = chip8->register_V[regx88] * 2;
 
             }else {printf("Unknown 8-series opcode: 0x%04X\n", opcode);}
             break;
         case 0x9000:;
+            //9xy0 - SNE Vx, Vy: Skip next instruction if Vx != Vy.
+            if ((opcode & 0x000F) == 0x0000) {  // Confirm it's 9xy0
+                uint8_t regx9 = (opcode & 0x0F00) >> 8;
+                uint8_t regy9 = (opcode & 0x00F0) >> 4;
+            
+                if (chip8->register_V[regx9] != chip8->register_V[regy9]){
+                    chip8->pc +=2;
+                }
+            }
+            break;
+        case 0xA000:;
+            //Annn - LD I, addr: Set I = nnn.
+            uint16_t val9 = (opcode & 0x0FFF);
+            chip8->register_I = val9;
+            break;
+
+                
+                
             
 
             
@@ -167,6 +234,8 @@ void chip8_emulate(CHIP8* chip8){
 
 }
 
+
+////////////////////////////////////////  fonts  //////////////////////////////////////////////////
 uint8_t fonts[80] = {
     //sprites of 5 bytes per character:
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
