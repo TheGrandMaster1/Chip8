@@ -38,36 +38,118 @@ void chip8_load_ROM(CHIP8* chip8, const uint8_t* ROM_file, size_t ROM_size){
 
 void chip8_emulate(CHIP8* chip8){
     //Fetch:
-    uint16_t opcode = (chip8->memory[chip8->pc] >> 8) | (chip8->memory[chip8->pc + 1]);
+    //instructions are 2 bytes
+    uint16_t opcode = (chip8->memory[chip8->pc] << 8) | (chip8->memory[chip8->pc + 1]);
     printf("Executing opcode: 0x%X at PC: 0x%X\n", opcode, chip8->pc);
 
     //Decode & Execute:
     switch (opcode & 0xF000) {
-        case 0x1000:
+        case 0x1000:;
             //1nnn - JP addr : Jump to location nnn
             chip8->pc = opcode & 0x0FFF;
             break;
-        case 0x2000:
+        case 0x2000:;
             //2nnn - CALL addr : Call subroutine at nnn
             uint16_t address = opcode & 0x0FFF;
             chip8->stack[chip8->sp] = chip8->pc + 2; //Save the return address (next instruction) on the stack
             chip8->sp +=1;
             chip8->pc = address;
             break;
-        case 0x3000:
+        case 0x3000:;
             //3xkk - SE Vx, byte: Skip next instruction if Vx = kk
-            uint8_t compare_val = opcode & 0x00FF;
-            uint8_t reg = (opcode & 0x0F00) >> 8;
+            uint8_t compare_val3 = opcode & 0x00FF;
+            uint8_t reg3 = (opcode & 0x0F00) >> 8;
             
-            if (chip8->register_V[reg] == compare_val) {chip8->pc += 2;}
+            if (chip8->register_V[reg3] == compare_val3) {chip8->pc += 2;}
             break;
-        case 0x4000:
+        case 0x4000:;
             //4xkk - SNE Vx, byte: Skip next instruction if Vx != kk.
-            uint8_t compare_val = opcode & 0x00FF;
-            uint8_t reg = (opcode & 0x0F00) >> 8;
-            if (chip8->register_V[reg] != compare_val) {chip8->pc += 2;}
+            uint8_t compare_val4 = opcode & 0x00FF;
+            uint8_t reg4 = (opcode & 0x0F00) >> 8;
+            if (chip8->register_V[reg4] != compare_val4) {chip8->pc += 2;}
             break;
+        case 0x5000:;
+            //5xy0 SE Vx, Vy: Skip next instruction if Vx = Vy
+            if ((opcode & 0x000F) == 0x0000) {  // Confirm it's 5xy0
+                uint8_t regx5 = (opcode & 0x0F00) >> 8;
+                uint8_t regy5 = (opcode & 0x00F0) >> 4; ///??????
+                if (chip8->register_V[regx5] == chip8->register_V[regy5]){chip8->pc +=2;}
 
+            } else{printf("Unknown 5-series opcode: 0x%04X\n", opcode);}
+            break;
+        case 0x6000:;
+            //6xkk - LD Vx, byte : Set Vx = kk. load kk into reg Vx
+            uint8_t regx6 = (opcode & 0x0F00) << 8;
+            uint8_t val6 = (opcode & 0x00FF);
+
+            chip8->register_V[regx6] = val6;
+            break;
+        case 0x7000:;
+            //7xkk - ADD Vx, byte : Set Vx = Vx + kk
+            uint8_t regx7 = (opcode & 0x0F00)>>8;
+            uint8_t val7 = (opcode & 0x00FF);
+
+            chip8->register_V[regx7] = chip8->register_V[regx7] + val7;
+            break;
+        case 0x8000:;
+            //8xy0 - LD Vx, Vy : Set Vx = Vy.
+            if (opcode & 0x000F == 0x0000){
+                uint8_t regx8 = (opcode & 0x0F00) >> 8;
+                uint8_t regy8 = (opcode & 0x00F0) >> 4; ///??????
+
+                chip8->register_V[regx8] = chip8->register_V[regy8];
+            } else if (opcode & 0x000F == 0x0001){
+                //8xy1 - OR Vx, Vy: Set Vx = Vx OR Vy.
+                uint8_t regx81 = (opcode & 0x0F00) >> 8;
+                uint8_t regy81 = (opcode & 0x00F0) >> 4; //??????
+
+                chip8->register_V[regx81] = chip8->register_V[regx81] | chip8->register_V[regy81];
+
+            }else if (opcode & 0x000F == 0x0002){
+                //8xy2 - AND Vx, Vy: Set Vx = Vx AND Vy.
+                uint8_t regx82 = (opcode & 0x0F00) >> 8;
+                uint8_t regy82 = (opcode & 0x00F0) >> 4; ///????????
+
+                chip8->register_V[regx82] = chip8->register_V[regx82] & chip8->register_V[regy82];
+
+            }else if (opcode & 0x000F == 0x0003){
+                //8xy3 - XOR Vx, Vy: Set Vx = Vx XOR Vy.
+                uint8_t regx83 = (opcode & 0x0F00) >> 8;
+                uint8_t regy83 = (opcode & 0x00F0) >> 4; ///????????
+
+                chip8->register_V[regx83] = chip8->register_V[regx83] ^ chip8->register_V[regy83];
+
+            }else if (opcode & 0x000F == 0x0004){
+                //8xy4 - ADD Vx, Vy: Set Vx = Vx + Vy, set VF = carry.
+                uint8_t regx84 = (opcode & 0x0F00) >> 8;
+                uint8_t regy84 = (opcode & 0x00F0) >> 4; ///????????
+
+                uint16_t sum4 = chip8->register_V[regx84] + chip8->register_V[regy84];
+                if (sizeof(sum4) > 255){ // more than 8 bits
+                    chip8->register_V[0x0F] = 1;
+                }else{
+                    chip8->register_V[0x0F] = 0;
+                }
+                chip8->register_V[regx84] = sum4 & 0xFF;
+
+            }else if (opcode & 0x000F == 0x0005){
+                //8xy5 - SUB Vx, Vy: Set Vx = Vx - Vy, set VF = NOT borrow
+
+            }else if (opcode & 0x000F == 0x0006){
+                //8xy6 - SHR Vx {, Vy}: Set Vx = Vx SHR 1.
+
+
+            }else if (opcode & 0x000F == 0x0007){
+                //8xy7 - SUBN Vx, Vy: Set Vx = Vy - Vx, set VF = NOT borrow.
+
+
+            }else if (opcode & 0x000F == 0x000E){
+                //8xyE - SHL Vx {, Vy}: Set Vx = Vx SHL 1.
+
+            }else {printf("Unknown 8-series opcode: 0x%04X\n", opcode);}
+            break;
+        case 0x9000:;
+            
 
             
         default:
