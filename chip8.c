@@ -210,9 +210,15 @@ void chip8_emulate(CHIP8* chip8){
             break;
         case 0xA000:;
             //Annn - LD I, addr: Set I = nnn.
-            uint16_t val9 = (opcode & 0x0FFF);
-            chip8->register_I = val9;
+            uint16_t vala = (opcode & 0x0FFF);
+            chip8->register_I = vala;
             break;
+        case 0xB000:;
+            //Bnnn - JP V0, addr: Jump to location nnn + V0.
+            uint16_t valb = (opcode & 0x0FFF);
+            chip8->memory[chip8->pc] = chip8->register_V[0] + valb;
+            break;
+
 
                 
                 
