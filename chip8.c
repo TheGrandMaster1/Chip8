@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 typedef struct chip_8{
     uint8_t memory[4096]; //4K byte-addressable memory
@@ -144,11 +145,9 @@ void chip8_emulate(CHIP8* chip8){
                 uint8_t regy84 = (opcode & 0x00F0) >> 4; ///????????
 
                 uint16_t sum4 = chip8->register_V[regx84] + chip8->register_V[regy84];
-                if (sizeof(sum4) > 2){ // more than 8 bits
-                    chip8->register_V[0x0F] = 1;
-                }else{
-                    chip8->register_V[0x0F] = 0;
-                }
+
+                chip8->register_V[0x0F] = (sum4 > 0xFF);  // More than 8-bit -> VF = 1
+
                 chip8->register_V[regx84] = sum4 & 0xFF; 
 
             }else if ((opcode & 0x000F) == 0x0005){
@@ -216,8 +215,58 @@ void chip8_emulate(CHIP8* chip8){
         case 0xB000:;
             //Bnnn - JP V0, addr: Jump to location nnn + V0.
             uint16_t valb = (opcode & 0x0FFF);
-            chip8->memory[chip8->pc] = chip8->register_V[0] + valb;
+            chip8->pc = chip8->register_V[0] + valb;
             break;
+        case 0xC000:;
+            //Cxkk - RND Vx, byte: Set Vx = random byte AND kk.
+            uint8_t regc = (opcode &0x0F00) >> 8;
+            uint8_t valc = (opcode &0x00FF);
+            uint8_t rand_byte = rand()% 256;
+
+            chip8->register_V[regc] = rand_byte & valc;
+            break;
+        case 0xD000:;
+            //Dxyn - DRW Vx, Vy, nibble:
+            //Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision flag.
+            uint8_t rows_byte = (opcode & 0x000F); // how many bytes to draw (rows)
+            uint8_t xPos = chip8->register_V[(opcode & 0x0F00) >> 8]; //xPos is value inside Vx
+            uint8_t yPos =  chip8->register_V[(opcode & 0x00F0) >> 4]; //yPos is value inside Vy
+
+            chip8->register_V[0x0F] = 0; //VF=0 initially
+
+            //loop over each row (byte) of the sprite:
+            for (uint8_t row = 0; row < rows_byte; row++){
+                uint8_t sprite_byte = chip8->memory[chip8->register_I + row]; // Fetch the sprite byte from memory starting at address I
+                //Loop over all 8 bits of that byte — each is a horizontal pixel:
+                for (int col=0; col<8; col++){
+                    uint8_t sprite_pixel = (sprite_byte >> (7-col)) & 0x1;
+
+                    //Compute the actual (x, y) screen coordinates of the pixel
+                    //by shifting from the starter coords (xPos, yPos):
+                    int gfx_x = (xPos + col) % 64; //width
+                    int gfx_y = (yPos + row) % 32; //height
+                    
+                    int gfx_index = gfx_y * 64 + gfx_x; //Converts (x, y) coordinates to a 1D index in gfx[]. (i dont understand this CHatgpt explain)
+
+                    if (sprite_pixel){
+                        //i.e., If we want to draw on the pixel
+                        if (chip8->gfx[gfx_index] == 1){
+                            //i.e., If Pixel at that location is already drawn on
+                            chip8->register_V[0xF] = 1; //collision detected
+                        }
+                        //free pixel:
+                        chip8->gfx[gfx_index] ^= 1; // XOR the pixel
+                    }
+                }
+            }
+            break;
+
+
+
+
+
+
+
 
 
                 
