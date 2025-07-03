@@ -6,7 +6,7 @@
 
 #undef main
 
-const int WIDTH = 1000, HEIGHT = 1000;
+const int WIDTH = 500, HEIGHT = 500;
 
 int main( int argc, char *argv[] )
 {
