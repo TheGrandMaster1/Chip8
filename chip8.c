@@ -225,6 +225,7 @@ void chip8_emulate(CHIP8* chip8){
 
             chip8->register_V[regc] = rand_byte & valc;
             break;
+
         case 0xD000:;
             //Dxyn - DRW Vx, Vy, nibble:
             //Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision flag.
@@ -246,7 +247,8 @@ void chip8_emulate(CHIP8* chip8){
                     int gfx_x = (xPos + col) % 64; //width
                     int gfx_y = (yPos + row) % 32; //height
                     
-                    int gfx_index = gfx_y * 64 + gfx_x; //Converts (x, y) coordinates to a 1D index in gfx[]. (i dont understand this CHatgpt explain)
+                    int gfx_index = gfx_y * 64 + gfx_x; //Converts (x, y) coordinates to a 1D index in gfx[]
+                    // index = y * width + x
 
                     if (sprite_pixel){
                         //i.e., If we want to draw on the pixel
@@ -260,6 +262,27 @@ void chip8_emulate(CHIP8* chip8){
                 }
             }
             break;
+
+            
+            case 0xE000:;
+                switch (opcode & 0x00FF){
+                    case 0x009E:; 
+                        // //Ex9E - SKP Vx: Skip next instruction if key with the value of Vx is pressed.
+                        uint8_t VxE = (opcode & 0x0F00) >> 8;
+                        if (chip8->keyboard ==chip8->memory[chip8->register_V[VxE]]){
+                            chip8->pc +=2;
+                        }
+                        break;
+                    case 0x00A1:;
+                        
+
+
+                }
+               
+    
+
+                
+
 
 
 
